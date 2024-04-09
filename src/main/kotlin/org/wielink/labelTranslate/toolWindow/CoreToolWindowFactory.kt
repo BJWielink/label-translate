@@ -1,9 +1,11 @@
 package org.wielink.labelTranslate.toolWindow
 
+import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.content.ContentFactory
+import org.wielink.labelTranslate.service.TranslationFileParseService
 import javax.swing.JPanel
 
 /**
@@ -16,5 +18,7 @@ class CoreToolWindowFactory : ToolWindowFactory {
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
         val content = ContentFactory.getInstance().createContent(JPanel(), "", false)
         toolWindow.contentManager.addContent(content)
+        val service = toolWindow.project.service<TranslationFileParseService>()
+        service.initListener()
     }
 }

@@ -29,4 +29,9 @@
         <toolWindow id="Label Translate" secondary="true" icon="AllIcons.Toolwindows.WebToolWindow" anchor="right"
                     factoryClass="org.wielink.labelTranslate.toolWindow.CoreToolWindowFactory"/>
     </extensions>
+
+    <applicationListeners>
+        <listener class="org.wielink.labelTranslate.applicationListener.CoreVfsListener"
+                  topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
+    </applicationListeners>
 </idea-plugin>
