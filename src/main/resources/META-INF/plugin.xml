@@ -33,5 +33,7 @@
     <applicationListeners>
         <listener class="org.wielink.labelTranslate.applicationListener.CoreVfsListener"
                   topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
+        <listener class="org.wielink.labelTranslate.toolWindow.CoreToolWindowFactory"
+                  topic="org.wielink.labelTranslate.applicationListener.TranslationFileChangeListener"/>
     </applicationListeners>
 </idea-plugin>

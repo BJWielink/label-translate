@@ -2,6 +2,7 @@ package org.wielink.labelTranslate.service
 
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
+import org.wielink.labelTranslate.applicationListener.TranslationFileChangeListener
 import java.io.File
 
 @Service(Service.Level.PROJECT)
@@ -18,9 +19,15 @@ class TranslationFileParseService(private val project: Project) {
         }
 
         // Send initial event
+        sendInitialEvent()
         // Forward CoreVfsListener events now that we are initialized
 
         listenerIsInitialized = true
+    }
+
+    private fun sendInitialEvent() {
+        val publisher = project.messageBus.syncPublisher(TranslationFileChangeListener.CHANGE_ACTION_TOPIC)
+        publisher.onParse()
     }
 
     private fun determineTranslationPath(): String? {
