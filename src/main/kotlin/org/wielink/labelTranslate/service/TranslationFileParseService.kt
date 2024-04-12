@@ -3,10 +3,13 @@ package org.wielink.labelTranslate.service
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
 import org.wielink.labelTranslate.applicationListener.TranslationFileChangeListener
+import org.wielink.labelTranslate.engine.TranslationFileParser
 import java.io.File
 
 @Service(Service.Level.PROJECT)
-class TranslationFileParseService(private val project: Project) {
+class TranslationFileParseService(
+    private val project: Project
+) {
     private var listenerIsInitialized = false
 
     private val baseFolder: String? by lazy {
@@ -26,8 +29,10 @@ class TranslationFileParseService(private val project: Project) {
     }
 
     private fun sendInitialEvent() {
-        val publisher = project.messageBus.syncPublisher(TranslationFileChangeListener.CHANGE_ACTION_TOPIC)
-        publisher.onParse()
+        val baseFolder = this.baseFolder ?: return
+        val rootNode = TranslationFileParser.buildTree(baseFolder)
+        // Send tree that contains all modified language files
+        TranslationFileChangeListener.publisher().onParse()
     }
 
     private fun determineTranslationPath(): String? {
@@ -59,27 +64,7 @@ class TranslationFileParseService(private val project: Project) {
             }
 
             // Then check if the immediate folder is a translation directory based on a dumb algorithm
-            if (folderIsTranslationDirectory(childFile)) {
-                return true
-            }
-        }
-
-        return false
-    }
-
-    private fun folderIsTranslationDirectory(file: File): Boolean {
-        if (!file.isDirectory) {
-            return false
-        }
-
-        val childFiles = file.listFiles() ?: return false
-        for (childFile in childFiles) {
-            if (!childFile.isFile) {
-                continue
-            }
-
-            // If the subdirectory contains a php file we deem the folder as a valid translation folder
-            if (childFile.extension == "php") {
+            if (TranslationFileParser.folderIsTranslationDirectory(childFile)) {
                 return true
             }
         }
