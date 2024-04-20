@@ -7,7 +7,6 @@ import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.content.ContentFactory
 import org.wielink.labelTranslate.applicationListener.TranslationFileChangeListener
 import org.wielink.labelTranslate.service.TranslationFileParseService
-import javax.swing.JPanel
 
 /**
  * The core [ToolWindowFactory] for the Label Translate plugin.
@@ -17,7 +16,7 @@ import javax.swing.JPanel
  */
 class CoreToolWindowFactory : ToolWindowFactory, TranslationFileChangeListener {
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
-        val content = ContentFactory.getInstance().createContent(JPanel(), "", false)
+        val content = ContentFactory.getInstance().createContent(CoreToolWindow(), "", false)
         toolWindow.contentManager.addContent(content)
         val service = toolWindow.project.service<TranslationFileParseService>()
         service.initListener()

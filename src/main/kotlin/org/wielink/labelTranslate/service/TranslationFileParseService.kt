@@ -30,7 +30,8 @@ class TranslationFileParseService(
 
     private fun sendInitialEvent() {
         val baseFolder = this.baseFolder ?: return
-        val rootNode = TranslationFileParser.buildTree(baseFolder)
+        val translationFileParser = TranslationFileParser(project)
+        val rootNode = translationFileParser.buildTree(baseFolder)
         // Send tree that contains all modified language files
         TranslationFileChangeListener.publisher().onParse()
     }
