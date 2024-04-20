@@ -11,7 +11,7 @@ abstract class AbstractNode(val type: NodeType): TreeNode {
 
     abstract val label: String
 
-    fun addNode(node: AbstractNode) {
+    protected fun addNode(node: AbstractNode) {
         var children = this.children
 
         if (children == null) {
@@ -32,7 +32,7 @@ abstract class AbstractNode(val type: NodeType): TreeNode {
         return children?.size ?: 0
     }
 
-    override fun getParent(): TreeNode? {
+    override fun getParent(): AbstractNode? {
         return parent
     }
 

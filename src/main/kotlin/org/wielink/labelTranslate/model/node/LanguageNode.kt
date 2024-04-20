@@ -2,7 +2,7 @@ package org.wielink.labelTranslate.model.node
 
 import org.wielink.labelTranslate.enum.NodeType
 
-class LanguageNode(override val label: String, val dirPath: String) : AbstractNode(NodeType.LANGUAGE) {
+class LanguageNode(override val label: String, val filePath: String) : AbstractNode(NodeType.LANGUAGE) {
     fun addTranslationNode(translationNode: TranslationNode) {
         this.addNode(translationNode)
     }
@@ -12,6 +12,6 @@ class LanguageNode(override val label: String, val dirPath: String) : AbstractNo
     }
 
     override fun clone(): AbstractNode {
-        return LanguageNode(label, dirPath)
+        return LanguageNode(label, filePath)
     }
 }

@@ -13,7 +13,7 @@ import javax.swing.JPanel
 
 class CoreToolWindow : JPanel() {
     init {
-        val fileNode = FileNode("labels", "")
+        val fileNode = FileNode("labels")
 
         val enNode = LanguageNode("en", "")
         val enHelloNode = TranslationNode("hello", "hello")
