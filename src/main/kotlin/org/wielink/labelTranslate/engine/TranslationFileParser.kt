@@ -6,9 +6,11 @@ import com.intellij.openapi.vfs.findPsiFile
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiRecursiveElementVisitor
 import com.intellij.psi.util.PsiTreeUtil
+import com.jetbrains.php.lang.psi.PhpFile
 import com.jetbrains.php.lang.psi.elements.ArrayCreationExpression
 import com.jetbrains.php.lang.psi.elements.ArrayHashElement
 import com.jetbrains.php.lang.psi.elements.PhpPsiElement
+import com.jetbrains.php.lang.psi.elements.PhpReturn
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression
 import com.jetbrains.php.lang.psi.elements.impl.ArrayCreationExpressionImpl
 import com.jetbrains.rd.generator.nova.Root
@@ -43,11 +45,6 @@ class TranslationFileParser(private val project: Project) {
                     continue
                 }
 
-                // TODO: Debug code
-                if (translationFileName != "validation") {
-                    continue
-                }
-
                 val languageNode = LanguageNode(translationFileName, languageFile.absolutePath)
                 completeLanguageTree(languageNode)
                 fileNode.addLanguageNode(languageNode)
@@ -66,25 +63,73 @@ class TranslationFileParser(private val project: Project) {
 
         val virtualFile = LocalFileSystem.getInstance().findFileByIoFile(languageFile) ?: return
         val psiFile = virtualFile.findPsiFile(project) ?: return
-
-        var root: AbstractNode? = null
         psiFile.accept(object: PsiRecursiveElementVisitor() {
             override fun visitElement(element: PsiElement) {
-                if (element is ArrayCreationExpression) {
-                    // Initial opening bracket has been reached, start tracking the current root
-                    if (root == null) {
-                        root = languageNode
+                if (isInitialCategoryNode(element)) {
+                    for (child in element.children) {
+                        visitCategory(languageNode, child)
                     }
-                } else if (element is ArrayHashElement) {
-                    // If the root is null, we have not reached the opening bracket yet, so just discard
-                    if (root != null) {
-                        val (key, value) = getKeyValueString(element)
-                        println("$key, $value")
-                    }
+                    return
                 }
+
                 super.visitElement(element)
             }
+
+            private fun visitCategory(node: AbstractNode, element: PsiElement) {
+                var currentNode = node
+
+                // Advanced depth
+                if (element is ArrayCreationExpression) {
+                    var key: String? = null
+
+                    // Find key that belongs to this category
+                    val binaryWrapper = element.parent?.parent
+                    if (binaryWrapper is ArrayHashElement) {
+                        val stringElement = binaryWrapper.firstPsiChild?.firstPsiChild
+                        if (stringElement is StringLiteralExpression) {
+                            key = stringElement.contents
+                        }
+                    }
+
+                    // Attach node and advance
+                    if (key != null) {
+                        currentNode = CategoryNode(key)
+
+                        if (node.type == NodeType.LANGUAGE) {
+                            (node as LanguageNode).addCategoryNode(currentNode)
+                        } else if (node.type == NodeType.CATEGORY) {
+                            (node as CategoryNode).addCategoryNode(currentNode)
+                        }
+                    }
+                } else if (element is ArrayHashElement) {
+                    // Add the actual translations to the tree
+                    val stringOperands = element.children
+                        .filter { psiElement -> psiElement is PhpPsiElement && psiElement.firstPsiChild is StringLiteralExpression }
+                        .map { (it as PhpPsiElement).firstPsiChild as StringLiteralExpression }
+
+                    if (stringOperands.size == 2) {
+                        val key = stringOperands[0].contents
+                        val value = stringOperands[1].contents
+                        val translationNode = TranslationNode(key, value)
+                        if (currentNode.type == NodeType.LANGUAGE) {
+                            (currentNode as LanguageNode).addTranslationNode(translationNode)
+                        } else if (currentNode.type == NodeType.CATEGORY) {
+                            (currentNode as CategoryNode).addTranslationNode(translationNode)
+                        }
+                    }
+                }
+
+                for (child in element.children) {
+                    visitCategory(currentNode, child)
+                }
+            }
         })
+    }
+
+    private fun isInitialCategoryNode(element: PsiElement): Boolean {
+        return element is ArrayCreationExpression
+                && element.parent is PhpReturn
+                && element.parent?.parent?.parent is PhpFile
     }
 
     fun getKeyValueString(element: ArrayHashElement): Pair<String?, String?> {
@@ -98,55 +143,6 @@ class TranslationFileParser(private val project: Project) {
 
         return Pair(leftOperand.contents, rightOperand.contents)
     }
-
-//    private fun completeLanguageTree(languageNode: AbstractNode) {
-//        if (languageNode.type != NodeType.LANGUAGE) {
-//            return
-//        }
-//
-//        val languagePayload = languageNode.languagePayload ?: return
-//        val file = File(languagePayload.filePath)
-//
-//        if (!file.exists() || !file.isDirectory) {
-//            return
-//        }
-//
-//        val categoryFiles = file.listFiles() ?: return
-//        for (categoryFile in categoryFiles) {
-//            if (!isTranslationFile(categoryFile)) {
-//                continue
-//            }
-//
-//            val categoryPayload = CategoryPayload(categoryFile.absolutePath)
-//            val categoryNode = AbstractNode(NodeType.FILE, categoryPayload = categoryPayload)
-//            completeCategoryTree(categoryNode)
-//        }
-//    }
-
-//    private fun completeCategoryTree(categoryNode: AbstractNode) {
-//        // Retrieve the PSI file
-//        val categoryPayload = categoryNode.categoryPayload ?: return
-//
-//        if (!categoryPayload.filePath.contains("validation.php")) {
-//            return
-//        }
-//
-//        val categoryFile = File(categoryPayload.filePath)
-//        val virtualFile = LocalFileSystem.getInstance().findFileByIoFile(categoryFile) ?: return
-//        val psiFile = virtualFile.findPsiFile(project) ?: return
-//
-//        val arrayCreation = PsiTreeUtil.collectElementsOfType(psiFile, ArrayCreationExpressionImpl::class.java)
-//
-//        // Walk the file tree to create child wrapper and translation nodes
-//        psiFile.accept(object: PsiRecursiveElementVisitor() {
-//            override fun visitElement(element: PsiElement) {
-//                if (element is ArrayCreationExpression) {
-//                    println("Test")
-//                }
-//                super.visitElement(element)
-//            }
-//        })
-//    }
 
     companion object {
         fun folderIsTranslationDirectory(file: File): Boolean {
