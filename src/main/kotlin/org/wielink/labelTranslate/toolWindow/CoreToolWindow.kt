@@ -1,7 +1,6 @@
 package org.wielink.labelTranslate.toolWindow
 
 import com.intellij.ui.components.JBTreeTable
-import org.wielink.labelTranslate.model.CoreTreeTableModel
 import org.wielink.labelTranslate.model.node.FileNode
 import org.wielink.labelTranslate.util.RecursionUtility
 import org.wielink.labelTranslate.util.TreeUtility

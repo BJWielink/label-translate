@@ -28,15 +28,18 @@ class TranslationFileParseService(
         listenerIsInitialized = true
     }
 
-    fun onFileChanged(virtualFile: VirtualFile) {
+    fun onFileChanged(virtualFiles: List<VirtualFile>) {
         if (!listenerIsInitialized) {
             return
         }
 
         val baseFolder = this.baseFolder ?: return
-        val file = File(virtualFile.path)
+        val translationFiles = virtualFiles.filter {
+            val file = File(it.path)
+            file.absolutePath.startsWith(baseFolder) && TranslationFileParser.isTranslationFile(file)
+        }
 
-        if (!file.absolutePath.startsWith(baseFolder) || !TranslationFileParser.isTranslationFile(file)) {
+        if (translationFiles.isEmpty()) {
             return
         }
 
