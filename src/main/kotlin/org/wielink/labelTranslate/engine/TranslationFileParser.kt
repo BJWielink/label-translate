@@ -19,7 +19,7 @@ import org.wielink.labelTranslate.model.node.*
 import java.io.File
 
 class TranslationFileParser(private val project: Project) {
-    fun buildTree(rootPath: String): AbstractNode {
+    fun buildTree(rootPath: String): RootNode {
         val rootNode = RootNode()
 
         val rootFile = File(rootPath)
@@ -45,7 +45,7 @@ class TranslationFileParser(private val project: Project) {
                     continue
                 }
 
-                val languageNode = LanguageNode(translationFileName, languageFile.absolutePath)
+                val languageNode = LanguageNode(translationDirectory.name, languageFile.absolutePath)
                 completeLanguageTree(languageNode)
                 fileNode.addLanguageNode(languageNode)
             }
@@ -130,18 +130,6 @@ class TranslationFileParser(private val project: Project) {
         return element is ArrayCreationExpression
                 && element.parent is PhpReturn
                 && element.parent?.parent?.parent is PhpFile
-    }
-
-    fun getKeyValueString(element: ArrayHashElement): Pair<String?, String?> {
-        val operands = element.children.filterIsInstance<PhpPsiElement>()
-        val leftOperand = operands.getOrNull(0)?.firstChild ?: return Pair(null, null)
-        val rightOperand = operands.getOrNull(1)?.firstChild ?: return Pair(null, null)
-
-        if (leftOperand !is StringLiteralExpression || rightOperand !is StringLiteralExpression) {
-            return Pair(null, null)
-        }
-
-        return Pair(leftOperand.contents, rightOperand.contents)
     }
 
     companion object {

@@ -2,8 +2,10 @@ package org.wielink.labelTranslate.service
 
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.VirtualFile
 import org.wielink.labelTranslate.applicationListener.TranslationFileChangeListener
 import org.wielink.labelTranslate.engine.TranslationFileParser
+import org.wielink.labelTranslate.model.node.RootNode
 import java.io.File
 
 @Service(Service.Level.PROJECT)
@@ -21,19 +23,33 @@ class TranslationFileParseService(
             return
         }
 
-        // Send initial event
         sendInitialEvent()
-        // Forward CoreVfsListener events now that we are initialized
 
         listenerIsInitialized = true
     }
 
-    private fun sendInitialEvent() {
+    fun onFileChanged(virtualFile: VirtualFile) {
+        if (!listenerIsInitialized) {
+            return
+        }
+
         val baseFolder = this.baseFolder ?: return
+        val file = File(virtualFile.path)
+
+        if (!file.absolutePath.startsWith(baseFolder)) {
+            return
+        }
+
+        // Ideally we would want to only parse this language tree instead of the whole root tree
+        sendInitialEvent()
+    }
+
+    private fun sendInitialEvent(): RootNode {
+        val baseFolder = this.baseFolder ?: return null!!
         val translationFileParser = TranslationFileParser(project)
         val rootNode = translationFileParser.buildTree(baseFolder)
-        // Send tree that contains all modified language files
-        TranslationFileChangeListener.publisher().onParse()
+        TranslationFileChangeListener.publisher().onParse(project, rootNode)
+        return rootNode
     }
 
     private fun determineTranslationPath(): String? {
