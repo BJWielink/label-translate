@@ -148,7 +148,7 @@ class TranslationFileParser(private val project: Project) {
             return false
         }
 
-        private fun isTranslationFile(file: File): Boolean {
+        fun isTranslationFile(file: File): Boolean {
             return file.exists() && file.isFile && file.extension == "php"
         }
     }

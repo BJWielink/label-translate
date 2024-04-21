@@ -36,7 +36,7 @@ class TranslationFileParseService(
         val baseFolder = this.baseFolder ?: return
         val file = File(virtualFile.path)
 
-        if (!file.absolutePath.startsWith(baseFolder)) {
+        if (!file.absolutePath.startsWith(baseFolder) || !TranslationFileParser.isTranslationFile(file)) {
             return
         }
 
