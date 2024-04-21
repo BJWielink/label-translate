@@ -26,13 +26,58 @@ class CoreToolWindowFactory : ToolWindowFactory, TranslationFileChangeListener {
 
     override fun onParse(project: Project, rootNode: RootNode) {
         val toolWindow = ToolWindowManager.getInstance(project).getToolWindow(Constants.TOOL_WINDOW_ID) ?: return
+        if (toolWindow.contentManager.contents.isEmpty()) {
+            setInitialContent(rootNode, toolWindow)
+        } else {
+            updateContent(rootNode, toolWindow)
+        }
+    }
 
-        // We can also add an equality comparison on the tree so that we can only rerender what is needed
-        toolWindow.contentManager.removeAllContents(true)
-
+    private fun setInitialContent(rootNode: RootNode, toolWindow: ToolWindow) {
         for (fileNode in rootNode.children()) {
-            val content = ContentFactory.getInstance().createContent(CoreToolWindow(fileNode as FileNode), fileNode.label, false)
-            toolWindow.contentManager.addContent(content)
+            addTranslationTab(fileNode as FileNode, toolWindow)
+        }
+    }
+
+    private fun addTranslationTab(fileNode: FileNode, toolWindow: ToolWindow) {
+        val component = CoreToolWindow(fileNode, fileNode.label)
+        val content = ContentFactory.getInstance().createContent(component, fileNode.label, false)
+        toolWindow.contentManager.addContent(content)
+    }
+
+    private fun updateContent(rootNode: RootNode, toolWindow: ToolWindow) {
+        val existingLabels = toolWindow.contentManager.contents.map { (it.component as CoreToolWindow).id }.toSet()
+        val currentLabels = rootNode.children().toList().map { it.label }.toSet()
+
+        val labelsToDelete = existingLabels subtract currentLabels
+        val labelsToUpdate = existingLabels intersect currentLabels
+        val labelsToAdd = currentLabels subtract existingLabels
+
+        val labelToContentMap = toolWindow.contentManager.contents.associateBy {
+            (it.component as CoreToolWindow).id
+        }
+        val labelToNodeMap = rootNode.children().toList().associateBy {
+            it.label
+        }
+
+        // Delete
+        for (labelToDelete in labelsToDelete) {
+            val content = labelToContentMap[labelToDelete] ?: continue
+            toolWindow.contentManager.removeContent(content, true)
+        }
+
+        // Update
+        for (labelToUpdate in labelsToUpdate) {
+            val content = labelToContentMap[labelToUpdate] ?: continue
+            val fileNode = labelToNodeMap[labelToUpdate] ?: continue
+            val component = (content.component as CoreToolWindow)
+            component.processUpdate(fileNode as FileNode)
+        }
+
+        // Add
+        for (labelToAdd in labelsToAdd) {
+            val fileNode = labelToNodeMap[labelToAdd] ?: continue
+            addTranslationTab(fileNode as FileNode, toolWindow)
         }
     }
 }
