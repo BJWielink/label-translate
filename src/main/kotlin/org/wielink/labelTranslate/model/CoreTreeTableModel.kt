@@ -19,7 +19,10 @@ class CoreTreeTableModel(treeNode: TreeNode, private val languageColumns: List<C
     }
 
     override fun getColumnClass(column: Int): Class<*> {
-        return AbstractNode::class.java
+        return when (column) {
+            0 -> return TreeTableModel::class.java
+            else -> AbstractNode::class.java
+        }
     }
 
     override fun getValueAt(node: Any?, column: Int): Any {

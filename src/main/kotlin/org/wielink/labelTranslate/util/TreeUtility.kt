@@ -16,7 +16,10 @@ object TreeUtility {
         // Acquire column information based on the available languages
         val languageColumns = fileNode.children()
             .toList()
-            .filterIsInstance<LanguageNode>().map { CoreColumn(it.label) }
+            .filterIsInstance<LanguageNode>().map { CoreColumn(it.label) }.toMutableList()
+
+        // Add key for the tree
+        languageColumns.add(0, CoreColumn("key"))
 
         // Calculate columns
         val model = CoreTreeTableModel(keyTree, languageColumns)
