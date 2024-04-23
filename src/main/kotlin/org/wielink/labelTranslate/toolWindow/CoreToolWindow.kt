@@ -2,28 +2,31 @@ package org.wielink.labelTranslate.toolWindow
 
 import com.intellij.ide.projectView.PresentationData
 import com.intellij.ide.util.treeView.NodeRenderer
+import com.intellij.openapi.project.Project
 import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.components.JBTreeTable
 import com.intellij.util.ui.components.BorderLayoutPanel
 import com.intellij.util.ui.tree.TreeUtil
+import org.wielink.labelTranslate.model.CoreNodeDescriptor
 import org.wielink.labelTranslate.model.node.AbstractNode
 import org.wielink.labelTranslate.model.node.FileNode
 import org.wielink.labelTranslate.util.RecursionUtility
 import org.wielink.labelTranslate.util.TreeUtility
 import java.awt.Color
 import javax.swing.JTree
+import javax.swing.tree.DefaultMutableTreeNode
 
 class CoreToolWindow(
+    project: Project,
     fileNode: FileNode,
     val id: String
 ) : BorderLayoutPanel() {
-    val model = TreeUtility.toRepresentationModel(fileNode)
+    val model = TreeUtility.toRepresentationModel(project, fileNode)
     val treeTable: JBTreeTable
 
     init {
         treeTable = JBTreeTable(model)
         treeTable.columnProportion = 1.0f / model.columnCount
-        TreeUtil.expand(treeTable.tree, 2)
 
         // Remove the over the top selection display on the tree item
         treeTable.tree.setCellRenderer(object: NodeRenderer() {
@@ -36,7 +39,9 @@ class CoreToolWindow(
                 row: Int,
                 hasFocus: Boolean
             ) {
-                val text = (value as AbstractNode).label
+                val defaultNode = (value as DefaultMutableTreeNode).userObject
+                val element = (defaultNode as CoreNodeDescriptor).element
+                val text = (element as AbstractNode).label
                 super.customizeCellRenderer(tree, text, selected, expanded, leaf, row, hasFocus)
             }
 
@@ -58,7 +63,6 @@ class CoreToolWindow(
 
     fun processUpdate(fileNode: FileNode) {
         val keyNode = RecursionUtility.mergeIntoKeyTree(fileNode)
-        model.setRoot(keyNode)
-        TreeUtil.expand(treeTable.tree, 2)
+        model.setRootNode(keyNode)
     }
 }

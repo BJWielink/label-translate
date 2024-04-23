@@ -53,4 +53,9 @@ abstract class AbstractNode(val type: NodeType): TreeNode {
     }
 
     abstract fun clone(): AbstractNode
+
+    fun viewChildren(): Array<out AbstractNode> {
+        val viewChildren = children?.filter { it !is TranslationNode }?.toTypedArray() ?: emptyArray()
+        return viewChildren
+    }
 }

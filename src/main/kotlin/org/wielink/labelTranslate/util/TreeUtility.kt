@@ -1,12 +1,13 @@
 package org.wielink.labelTranslate.util
 
+import com.intellij.openapi.project.Project
 import org.wielink.labelTranslate.model.CoreColumn
 import org.wielink.labelTranslate.model.CoreTreeTableModel
 import org.wielink.labelTranslate.model.node.FileNode
 import org.wielink.labelTranslate.model.node.LanguageNode
 
 object TreeUtility {
-    fun toRepresentationModel(fileNode: FileNode): CoreTreeTableModel {
+    fun toRepresentationModel(project: Project, fileNode: FileNode): CoreTreeTableModel {
         /*
          * The UI tree expects the keys and categories to be displayed horizontally.
          * We merge together the file tree to become a horizontal key / category tree.
@@ -22,7 +23,7 @@ object TreeUtility {
         languageColumns.add(0, CoreColumn("key"))
 
         // Calculate columns
-        val model = CoreTreeTableModel(keyTree, languageColumns)
+        val model = CoreTreeTableModel(project, keyTree, languageColumns)
         return model
     }
 }

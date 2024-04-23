@@ -1,6 +1,9 @@
 package org.wielink.labelTranslate.toolWindow
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.serviceOrNull
+import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.progress.impl.CoreProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
@@ -40,7 +43,7 @@ class CoreToolWindowFactory : ToolWindowFactory, TranslationFileChangeListener {
     }
 
     private fun addTranslationTab(fileNode: FileNode, toolWindow: ToolWindow) {
-        val component = CoreToolWindow(fileNode, fileNode.label)
+        val component = CoreToolWindow(toolWindow.project, fileNode, fileNode.label)
         val content = ContentFactory.getInstance().createContent(component, fileNode.label, false)
         toolWindow.contentManager.addContent(content)
     }
