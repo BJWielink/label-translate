@@ -4,9 +4,10 @@ import com.intellij.ide.projectView.PresentationData
 import com.intellij.ide.util.treeView.NodeRenderer
 import com.intellij.openapi.project.Project
 import com.intellij.ui.SimpleTextAttributes
+import com.intellij.ui.TableSpeedSearch
+import com.intellij.ui.TreeSpeedSearch
 import com.intellij.ui.components.JBTreeTable
 import com.intellij.util.ui.components.BorderLayoutPanel
-import com.intellij.util.ui.tree.TreeUtil
 import org.wielink.labelTranslate.model.CoreNodeDescriptor
 import org.wielink.labelTranslate.model.node.AbstractNode
 import org.wielink.labelTranslate.model.node.FileNode
@@ -65,6 +66,13 @@ class CoreToolWindow(
         sorter.toggleSortOrder(0)
 
         addToCenter(treeTable)
+
+        // Search
+        val treeSpeedSearch = TreeSpeedSearch.installOn(treeTable.tree, false) { it.lastPathComponent.toString() }
+        treeSpeedSearch.setCanExpand(true)
+        treeSpeedSearch.setClearSearchOnNavigateNoMatch(true)
+        val tableSpeedSearch = TableSpeedSearch.installOn(treeTable.table)
+        tableSpeedSearch.setClearSearchOnNavigateNoMatch(true)
     }
 
     fun processUpdate(fileNode: FileNode) {
