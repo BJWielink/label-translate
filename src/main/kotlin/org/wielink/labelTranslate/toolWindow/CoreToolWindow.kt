@@ -58,6 +58,12 @@ class CoreToolWindow(
             }
         })
 
+        val sorter = CoreRowSorter(treeTable, model)
+        treeTable.setRowSorter(sorter)
+
+        // By default, sort by key ascending
+        sorter.toggleSortOrder(0)
+
         addToCenter(treeTable)
     }
 

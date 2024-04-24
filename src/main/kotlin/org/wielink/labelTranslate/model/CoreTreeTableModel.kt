@@ -1,5 +1,6 @@
 package org.wielink.labelTranslate.model
 
+import com.intellij.ide.util.treeView.NodeDescriptor
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
 import com.intellij.ui.tree.AsyncTreeModel
@@ -20,7 +21,7 @@ import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.TreeNode
 import javax.swing.tree.TreePath
 
-class CoreTreeTableModel(project: Project, treeNode: TreeNode, private val languageColumns: List<CoreColumn>) : AbstractTreeModel(), TreeTableModel, TreeModelListener, TreeVisitor.Acceptor, Disposable {
+class CoreTreeTableModel(project: Project, treeNode: TreeNode, val languageColumns: List<CoreColumn>) : AbstractTreeModel(), TreeTableModel, TreeModelListener, TreeVisitor.Acceptor, Disposable {
     private val structure = CoreTreeStructure(project, treeNode as RootNode)
     private val structureModel = StructureTreeModel(structure, this)
     private val asyncModel = AsyncTreeModel(structureModel, true, this)
@@ -32,6 +33,10 @@ class CoreTreeTableModel(project: Project, treeNode: TreeNode, private val langu
     fun setRootNode(rootNode: RootNode) {
         structure.setRootElement(rootNode)
         structureModel.invalidateAsync()
+    }
+
+    fun setComparator(comparator: Comparator<in NodeDescriptor<*>>) {
+        structureModel.setComparator(comparator)
     }
 
     override fun getRoot(): Any? {
