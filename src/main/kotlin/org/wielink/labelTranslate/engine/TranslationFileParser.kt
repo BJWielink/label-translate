@@ -108,8 +108,9 @@ class TranslationFileParser(private val project: Project) {
                         .map { (it as PhpPsiElement).firstPsiChild as StringLiteralExpression }
 
                     if (stringOperands.size == 2) {
-                        val key = stringOperands[0].contents
-                        val value = stringOperands[1].contents
+                        // Unescape the escape characters. When we save, we add them again
+                        val key = stringOperands[0].contents.replace("\\'", "'")
+                        val value = stringOperands[1].contents.replace("\\'", "'")
                         val translationNode = TranslationNode(key, value)
                         if (currentNode.type == NodeType.LANGUAGE) {
                             (currentNode as LanguageNode).addTranslationNode(translationNode)
@@ -126,13 +127,13 @@ class TranslationFileParser(private val project: Project) {
         })
     }
 
-    private fun isInitialCategoryNode(element: PsiElement): Boolean {
-        return element is ArrayCreationExpression
-                && element.parent is PhpReturn
-                && element.parent?.parent?.parent is PhpFile
-    }
-
     companion object {
+        fun isInitialCategoryNode(element: PsiElement): Boolean {
+            return element is ArrayCreationExpression
+                    && element.parent is PhpReturn
+                    && element.parent?.parent?.parent is PhpFile
+        }
+
         fun folderIsTranslationDirectory(file: File): Boolean {
             if (!file.exists() || !file.isDirectory) {
                 return false

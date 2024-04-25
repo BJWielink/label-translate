@@ -79,6 +79,10 @@ class CoreTreeTableModel(project: Project, treeNode: TreeNode, val languageColum
     }
 
     override fun getValueAt(node: Any?, column: Int): Any {
+        return getNodeAt(node, column)?.translation ?: ""
+    }
+
+    fun getNodeAt(node: Any?, column: Int): TranslationNode? {
         if (node == null) {
             throw Exception("Null value for one of the nodes was unexpected.")
         }
@@ -87,22 +91,23 @@ class CoreTreeTableModel(project: Project, treeNode: TreeNode, val languageColum
         val element = (defaultNode as CoreNodeDescriptor).element
 
         if ((element as AbstractNode).type === NodeType.CATEGORY) {
-            return ""
+            return null
         }
 
         if ((element as AbstractNode).type === NodeType.KEY) {
             val languageLabel = languageColumns[column].header
             val translationNode = (element as KeyNode).children()
                 .toList()
-                .firstOrNull { (it as TranslationNode).languageNode?.label == languageLabel } ?: return ""
-            return (translationNode as TranslationNode).translation
+                .firstOrNull { (it as TranslationNode).languageNode?.label == languageLabel } ?: return null
+            return (translationNode as TranslationNode)
         }
 
         throw Exception("Unexpected node value: ${element::class.java.simpleName}")
     }
 
     override fun isCellEditable(node: Any?, column: Int): Boolean {
-        return false
+        val abstractNode = ((node as DefaultMutableTreeNode).userObject as CoreNodeDescriptor).element as AbstractNode
+        return abstractNode.type == NodeType.KEY
     }
 
     override fun setValueAt(aValue: Any?, node: Any?, column: Int) {

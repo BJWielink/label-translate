@@ -2,20 +2,28 @@ package org.wielink.labelTranslate.toolWindow
 
 import com.intellij.ide.projectView.PresentationData
 import com.intellij.ide.util.treeView.NodeRenderer
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.TableSpeedSearch
 import com.intellij.ui.TreeSpeedSearch
 import com.intellij.ui.components.JBTreeTable
+import com.intellij.ui.tree.StructureTreeModel
 import com.intellij.util.ui.components.BorderLayoutPanel
-import org.wielink.labelTranslate.model.CoreNodeDescriptor
-import org.wielink.labelTranslate.model.node.AbstractNode
+import org.wielink.labelTranslate.engine.TranslationFileSaver
 import org.wielink.labelTranslate.model.node.FileNode
+import org.wielink.labelTranslate.model.node.KeyNode
+import org.wielink.labelTranslate.model.node.TranslationNode
 import org.wielink.labelTranslate.util.RecursionUtility
 import org.wielink.labelTranslate.util.TreeUtility
 import java.awt.Color
+import java.awt.Component
+import javax.swing.JTable
 import javax.swing.JTree
-import javax.swing.tree.DefaultMutableTreeNode
+import javax.swing.event.CellEditorListener
+import javax.swing.event.ChangeEvent
+import javax.swing.table.DefaultTableCellRenderer
+import javax.swing.tree.TreePath
 
 class CoreToolWindow(
     project: Project,
@@ -29,23 +37,38 @@ class CoreToolWindow(
         treeTable = JBTreeTable(model)
         treeTable.columnProportion = 1.0f / model.columnCount
 
-        // Remove the over the top selection display on the tree item
-        treeTable.tree.setCellRenderer(object: NodeRenderer() {
-            override fun customizeCellRenderer(
-                tree: JTree,
-                value: Any?,
-                selected: Boolean,
-                expanded: Boolean,
-                leaf: Boolean,
-                row: Int,
-                hasFocus: Boolean
-            ) {
-                val defaultNode = (value as DefaultMutableTreeNode).userObject
-                val element = (defaultNode as CoreNodeDescriptor).element
-                val text = (element as AbstractNode).label
-                super.customizeCellRenderer(tree, text, selected, expanded, leaf, row, hasFocus)
+        val cellEditor = StatefulCellEditor()
+        cellEditor.addCellEditorListener(object: CellEditorListener {
+            override fun editingStopped(e: ChangeEvent?) {
+                if (e == null) {
+                    return
+                }
+
+                val editor = e.source as StatefulCellEditor
+                val row = editor.row
+                val column = editor.column
+
+                if (row == -1 || row == null || column == -1 || column == null) {
+                    return
+                }
+
+                val keyNode = treeTable.tree.getPathForRow(row).lastPathComponent
+                val updatedValue = editor.cellEditorValue as String
+                val translationNode = model.getNodeAt(keyNode, column + 1) ?: return
+
+                val fileSaver = TranslationFileSaver(project, translationNode, updatedValue)
+                ApplicationManager.getApplication().runWriteAction {
+                    fileSaver.save()
+                }
             }
 
+            override fun editingCanceled(e: ChangeEvent?) {
+            }
+        })
+        treeTable.table.setDefaultEditor(StructureTreeModel::class.java, cellEditor)
+
+        treeTable.tree.setCellRenderer(object: NodeRenderer() {
+            // Remove the over the top selection display on the tree item
             override fun getSimpleTextAttributes(
                 presentation: PresentationData,
                 color: Color?,
