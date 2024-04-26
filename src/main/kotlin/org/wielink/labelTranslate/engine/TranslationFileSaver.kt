@@ -53,21 +53,24 @@ class TranslationFileSaver(
         val type = PhpPsiElementFactory.createPhpPsiFromText(project, ArrayCreationExpression::class.java, "[")
 
         for (child in node.children()) {
+            val label = child.label.replace("'", "\\'")
+            // Prepare key value pair by, firstly, adding the key
+            val keyValuePair = PhpPsiElementFactory.createPhpPsiFromText(project, ArrayHashElement::class.java, "['$label'     =>]")
             if (child is TranslationNode) {
-                val label = child.label.replace("'", "\\'")
+                // Add a simple translation to the current array
                 val translation = child.translation.replace("'", "\\'")
-
-                /*
-                 * If we are a category, create an empty array instead so that we can advance our element
-                 * to the empty array. Then recursively call ourselves on this empty array with the
-                 * child node.
-                 */
-                val keyValuePair = PhpPsiElementFactory.createPhpPsiFromText(project, ArrayHashElement::class.java, "['$label'     => '$translation']")
-                type.add(PhpPsiElementFactory.createNewLine(project))
-                type.add(keyValuePair)
-                type.add(PhpPsiElementFactory.createComma(project))
-                type.add(PhpPsiElementFactory.createNewLine(project))
+                keyValuePair.add(PhpPsiElementFactory.createStringLiteralExpression(project, translation, true))
+            } else {
+                // Create dummy that has to be filled with data
+                val categoryElement = PhpPsiElementFactory.createPhpPsiFromText(project, ArrayCreationExpression::class.java, "[]")
+                val addedElement = keyValuePair.add(categoryElement)
+                // Recursively add data to the dummy
+                addCategory(addedElement, child)
             }
+            type.add(PhpPsiElementFactory.createNewLine(project))
+            type.add(keyValuePair)
+            type.add(PhpPsiElementFactory.createComma(project))
+            type.add(PhpPsiElementFactory.createNewLine(project))
         }
 
         val end = PhpPsiElementFactory.createFromText(project, LeafPsiElement::class.java, "]")!!
