@@ -10,6 +10,7 @@ import com.intellij.psi.impl.source.tree.LeafPsiElement
 import com.jetbrains.php.lang.psi.PhpPsiElementFactory
 import com.jetbrains.php.lang.psi.elements.ArrayCreationExpression
 import com.jetbrains.php.lang.psi.elements.ArrayHashElement
+import org.wielink.labelTranslate.enum.NodeType
 import org.wielink.labelTranslate.model.node.AbstractNode
 import org.wielink.labelTranslate.model.node.LanguageNode
 import org.wielink.labelTranslate.model.node.TranslationNode
@@ -35,6 +36,12 @@ class TranslationFileSaver(
         val psiOutputFile = psiFile.copy() as PsiFile
         psiOutputFile.name = "updated.php"
 
+        // Add modified translation to language node
+        translationNode.translation = updatedValue
+
+        // Sort nodes alphabetically
+        sortAlphabetically(languageNode)
+
         // Add the translations
         deserializeNodeIntoPsi(psiOutputFile, languageNode)
 
@@ -44,8 +51,16 @@ class TranslationFileSaver(
 
         // Write the psi file to the disk
         psiFile.containingDirectory.add(psiOutputFile)
+    }
 
-        translationNode.translation = updatedValue
+    private fun sortAlphabetically(node: AbstractNode) {
+        node.sortAlphabetically()
+
+        for (child in node.children()) {
+            if (child.type == NodeType.CATEGORY) {
+                sortAlphabetically(child)
+            }
+        }
     }
 
     private fun deserializeCategory(arrayElementToFill: PsiElement, nodeToDeserialize: AbstractNode) {

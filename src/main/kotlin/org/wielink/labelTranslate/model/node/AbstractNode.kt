@@ -58,4 +58,8 @@ abstract class AbstractNode(val type: NodeType): TreeNode {
         val viewChildren = children?.filter { it !is TranslationNode }?.toTypedArray() ?: emptyArray()
         return viewChildren
     }
+
+    fun sortAlphabetically() {
+        children?.sortWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label} )
+    }
 }
