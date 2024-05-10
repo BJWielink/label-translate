@@ -58,4 +58,15 @@ abstract class AbstractNode(val type: NodeType): TreeNode {
         val viewChildren = children?.filter { it !is TranslationNode }?.toTypedArray() ?: emptyArray()
         return viewChildren
     }
+
+    override fun equals(other: Any?): Boolean {
+        if (other == null) return false
+        if (this === other) return true
+        if (other !is AbstractNode) return false
+        return other.label == label
+    }
+
+    override fun hashCode(): Int {
+        return label.hashCode()
+    }
 }
