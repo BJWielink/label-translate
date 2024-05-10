@@ -1,29 +1,32 @@
 package org.wielink.labelTranslate.engine
 
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.findPsiFile
 import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiFile
 import com.intellij.psi.codeStyle.CodeStyleManager
 import com.intellij.psi.impl.source.tree.LeafPsiElement
 import com.jetbrains.php.lang.psi.PhpPsiElementFactory
 import com.jetbrains.php.lang.psi.elements.ArrayCreationExpression
 import com.jetbrains.php.lang.psi.elements.ArrayHashElement
 import org.wielink.labelTranslate.enum.NodeType
-import org.wielink.labelTranslate.model.node.AbstractNode
-import org.wielink.labelTranslate.model.node.LanguageNode
-import org.wielink.labelTranslate.model.node.TranslationNode
+import org.wielink.labelTranslate.model.node.*
+import org.wielink.labelTranslate.service.TranslationFileParseService
 import java.io.File
 
 class TranslationFileSaver(
     private val project: Project,
-    private val translationNode: TranslationNode,
-    private val updatedValue: String
+    private val updatedValue: String,
+    private val categoryPath: List<String>,
+    private val filePath: String,
+    private val fileNode: FileNode,
+    private val translationLabel: String
 ) {
     fun save() {
-        val languageNode = translationNode.languageNode ?: return
-        val languageFile = File(languageNode.filePath)
+        val languageFile = File(filePath)
 
         if (!languageFile.exists() || !languageFile.isFile) {
             return
@@ -32,42 +35,63 @@ class TranslationFileSaver(
         val virtualFile = LocalFileSystem.getInstance().findFileByIoFile(languageFile) ?: return
         val psiFile = virtualFile.findPsiFile(project) ?: return
 
-        // TODO: When deserialization works, just replace the existing psi file
-        val psiOutputFile = psiFile.copy() as PsiFile
-        psiOutputFile.name = "updated.php"
-
-        // Add modified translation to language node
+        val languageNode = fileNode.children().toList().first { (it as LanguageNode).filePath == filePath }
+        val translationNode = ensureNodeExists(languageNode as LanguageNode, categoryPath)
         translationNode.translation = updatedValue
 
-        // Sort nodes alphabetically
-        sortAlphabetically(languageNode)
-
         // Add the translations
-        deserializeNodeIntoPsi(psiOutputFile, languageNode)
+        ApplicationManager.getApplication().invokeLater {
+            WriteCommandAction.runWriteCommandAction(project) {
+                deserializeNodeIntoPsi(psiFile, languageNode)
 
-        // Add indenting to the newly created file
-        val codeStyleManager = CodeStyleManager.getInstance(project)
-        codeStyleManager.reformat(psiOutputFile)
-
-        // Write the psi file to the disk
-        psiFile.containingDirectory.add(psiOutputFile)
-    }
-
-    private fun sortAlphabetically(node: AbstractNode) {
-        node.sortAlphabetically()
-
-        for (child in node.children()) {
-            if (child.type == NodeType.CATEGORY) {
-                sortAlphabetically(child)
+                // Add indenting to the newly created file
+                val codeStyleManager = CodeStyleManager.getInstance(project)
+                codeStyleManager.reformat(psiFile)
+                project.service<TranslationFileParseService>().onFileChanged(listOf(virtualFile))
             }
         }
+    }
+
+    private fun ensureNodeExists(languageNode: LanguageNode, labelPath: List<String>): TranslationNode {
+        var nodeIterator: AbstractNode = languageNode
+        for (labelItem in labelPath) {
+            var match = nodeIterator.children().toList().firstOrNull { it.type == NodeType.CATEGORY && it.label == labelItem }
+            if (match == null) {
+                match = CategoryNode(labelItem)
+                if (nodeIterator.type == NodeType.LANGUAGE) {
+                    (nodeIterator as LanguageNode).addCategoryNode(match)
+                } else {
+                    (nodeIterator as CategoryNode).addCategoryNode(match)
+                }
+            }
+            nodeIterator = match
+        }
+
+        val match = nodeIterator.children().toList().firstOrNull { it.type == NodeType.TRANSLATION && it.label == translationLabel } as TranslationNode?
+        if (match != null) {
+            return match
+        }
+
+        val translationNode = TranslationNode(translationLabel, "") // Dummy
+        if (nodeIterator.type == NodeType.LANGUAGE) {
+            (nodeIterator as LanguageNode).addTranslationNode(translationNode)
+        } else {
+            (nodeIterator as CategoryNode).addTranslationNode(translationNode)
+        }
+        return translationNode
     }
 
     private fun deserializeCategory(arrayElementToFill: PsiElement, nodeToDeserialize: AbstractNode) {
         // Initialize the array
         val array = PhpPsiElementFactory.createPhpPsiFromText(project, ArrayCreationExpression::class.java, "[")
 
-        for (childNodeToDeserialize in nodeToDeserialize.children()) {
+        // Sort alphabetically to mitigate merge conflicts
+        val children = nodeToDeserialize.children().toList().sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label })
+        for (childNodeToDeserialize in children) {
+            if (childNodeToDeserialize.type == NodeType.KEY) {
+                continue
+            }
+
             val label = childNodeToDeserialize.label.replace("'", "\\'")
             // Prepare key value pair by, firstly, adding the key
             val keyValuePair = PhpPsiElementFactory.createPhpPsiFromText(project, ArrayHashElement::class.java, "['$label' =>]")

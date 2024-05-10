@@ -19,9 +19,9 @@ object RecursionUtility {
 
         if (node.type == NodeType.TRANSLATION) {
             // Merge together translation nodes into a parent key node so that we can horizontally use them in the table
-            rootChild = node
+            rootChild = node.clone()
             // Set reference to language so that we can match it to the right column in the table UI
-            (rootChild as TranslationNode).languageNode = languageNode
+            (rootChild as TranslationNode).languageNode = languageNode.clone()
 
             // Use existing key node if present
             var existingKeyNode: KeyNode? = null

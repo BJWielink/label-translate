@@ -15,7 +15,7 @@ class CategoryNode(override val label: String) : AbstractNode(NodeType.CATEGORY)
         addNode(keyNode)
     }
 
-    override fun clone(): AbstractNode {
+    override fun clone(): CategoryNode {
         return CategoryNode(label)
     }
 }

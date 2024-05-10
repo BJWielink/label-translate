@@ -2,7 +2,6 @@ package org.wielink.labelTranslate.toolWindow
 
 import com.intellij.ide.projectView.PresentationData
 import com.intellij.ide.util.treeView.NodeRenderer
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.TableSpeedSearch
@@ -11,27 +10,35 @@ import com.intellij.ui.components.JBTreeTable
 import com.intellij.ui.tree.StructureTreeModel
 import com.intellij.util.ui.components.BorderLayoutPanel
 import org.wielink.labelTranslate.engine.TranslationFileSaver
-import org.wielink.labelTranslate.model.node.FileNode
-import org.wielink.labelTranslate.model.node.KeyNode
-import org.wielink.labelTranslate.model.node.TranslationNode
+import org.wielink.labelTranslate.enum.NodeType
+import org.wielink.labelTranslate.model.CoreNodeDescriptor
+import org.wielink.labelTranslate.model.node.*
 import org.wielink.labelTranslate.util.RecursionUtility
 import org.wielink.labelTranslate.util.TreeUtility
 import java.awt.Color
-import java.awt.Component
-import javax.swing.JTable
-import javax.swing.JTree
+import java.io.File
 import javax.swing.event.CellEditorListener
 import javax.swing.event.ChangeEvent
-import javax.swing.table.DefaultTableCellRenderer
-import javax.swing.tree.TreePath
+import javax.swing.tree.DefaultMutableTreeNode
 
 class CoreToolWindow(
     project: Project,
-    fileNode: FileNode,
+    private var fileNode: FileNode,
     val id: String
 ) : BorderLayoutPanel() {
     val model = TreeUtility.toRepresentationModel(project, fileNode)
     val treeTable: JBTreeTable
+
+    private fun getCategoryPath(keyNode: KeyNode): List<String> {
+        var nodeIterator: AbstractNode? = keyNode.parent
+        val labelPath = mutableListOf<String>()
+        while (nodeIterator != null && nodeIterator.type != NodeType.ROOT) {
+            labelPath.add(nodeIterator.label)
+            nodeIterator = nodeIterator.parent
+        }
+        labelPath.reverse()
+        return labelPath
+    }
 
     init {
         treeTable = JBTreeTable(model)
@@ -52,14 +59,54 @@ class CoreToolWindow(
                     return
                 }
 
-                val keyNode = treeTable.tree.getPathForRow(row).lastPathComponent
-                val updatedValue = editor.cellEditorValue as String
-                val translationNode = model.getNodeAt(keyNode, column + 1) ?: return
+                // Find the key node that belongs to the edited cell
+                val genericKeyNode = treeTable.tree.getPathForRow(row).lastPathComponent
+                val keyNode = ((genericKeyNode as DefaultMutableTreeNode).userObject as CoreNodeDescriptor).element as KeyNode
+                val categoryPath = getCategoryPath(keyNode)
 
-                val fileSaver = TranslationFileSaver(project, translationNode, updatedValue)
-                ApplicationManager.getApplication().runWriteAction {
-                    fileSaver.save()
-                }
+                // Get the updated value
+                val updatedValue = editor.cellEditorValue as String
+
+                // Get the existing translation
+                // var translationNode = model.getNodeAt(genericKeyNode, column + 1)
+
+                // If it does not exist, find the language node so that it can be inserted
+                val firstFile = File((keyNode.children().toList().first() as TranslationNode).languageNode!!.filePath)
+                val categoryDir = firstFile.parentFile.parentFile
+                val languageFolderName = model.languageColumns[column + 1].header
+                val languageDir = File(categoryDir, languageFolderName)
+                val filePath = File(languageDir, firstFile.name).absolutePath
+
+                /*
+                 * We require:
+                 * - Updated value so that we know what label to save
+                 * - Category path so that we can restore the path / find the original translation node
+                 * - File path, so we know where to store
+                 * - File node so that we can modify the orignal tree
+                 *
+                 * Then:
+                 * - We find the translation node in the original tree by following the path. If it does not exist, add it in its path
+                 * - Set the translation value to the updated value
+                 * - Save the psi based on the original tree
+                 * - Merge the update original tree into a representable key tree that will be used as model for this window
+                 *      (setRootNode for the model based on this new merged tree)
+                 *
+                 * Finally, optimizations:
+                 * - Only set the update node as changed instead of the whole merged tree
+                 */
+                val fileSaver = TranslationFileSaver(project, updatedValue, categoryPath, filePath, fileNode, keyNode.label)
+                fileSaver.save()
+
+//                if (translationNode == null) {
+//                    translationNode = TranslationNode(keyNode.label, updatedValue)
+//                    val languageHeader = model.languageColumns[column + 1].header
+//                    val languageNode = fileNode.children().toList().firstOrNull { it.type == NodeType.LANGUAGE && it.label == languageHeader } ?: return
+//                    translationNode.languageNode = languageNode as LanguageNode
+//                    keyNode.addTranslationNode(translationNode)
+//                }
+//
+//                val fileSaver = TranslationFileSaver(project, translationNode, updatedValue)
+//                fileSaver.save()
             }
 
             override fun editingCanceled(e: ChangeEvent?) {
@@ -101,5 +148,6 @@ class CoreToolWindow(
     fun processUpdate(fileNode: FileNode) {
         val keyNode = RecursionUtility.mergeIntoKeyTree(fileNode)
         model.setRootNode(keyNode)
+        this.fileNode = fileNode
     }
 }

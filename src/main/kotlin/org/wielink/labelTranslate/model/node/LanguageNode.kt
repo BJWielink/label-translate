@@ -11,7 +11,7 @@ class LanguageNode(override val label: String, val filePath: String) : AbstractN
         this.addNode(categoryNode)
     }
 
-    override fun clone(): AbstractNode {
+    override fun clone(): LanguageNode {
         return LanguageNode(label, filePath)
     }
 }

@@ -60,6 +60,6 @@ abstract class AbstractNode(val type: NodeType): TreeNode {
     }
 
     fun sortAlphabetically() {
-        children?.sortWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label} )
+        children?.sortWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label } )
     }
 }

@@ -17,7 +17,7 @@ class RootNode : AbstractNode(NodeType.ROOT) {
         addNode(fileNode)
     }
 
-    override fun clone(): AbstractNode {
+    override fun clone(): RootNode {
         return RootNode()
     }
 }

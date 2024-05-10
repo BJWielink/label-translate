@@ -7,7 +7,7 @@ class KeyNode(override val label: String) : AbstractNode(NodeType.KEY) {
         addNode(translationNode)
     }
 
-    override fun clone(): AbstractNode {
+    override fun clone(): KeyNode {
         return KeyNode(label)
     }
 }
