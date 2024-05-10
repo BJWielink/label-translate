@@ -67,9 +67,6 @@ class CoreToolWindow(
                 // Get the updated value
                 val updatedValue = editor.cellEditorValue as String
 
-                // Get the existing translation
-                // var translationNode = model.getNodeAt(genericKeyNode, column + 1)
-
                 // If it does not exist, find the language node so that it can be inserted
                 val firstFile = File((keyNode.children().toList().first() as TranslationNode).languageNode!!.filePath)
                 val categoryDir = firstFile.parentFile.parentFile
@@ -77,36 +74,8 @@ class CoreToolWindow(
                 val languageDir = File(categoryDir, languageFolderName)
                 val filePath = File(languageDir, firstFile.name).absolutePath
 
-                /*
-                 * We require:
-                 * - Updated value so that we know what label to save
-                 * - Category path so that we can restore the path / find the original translation node
-                 * - File path, so we know where to store
-                 * - File node so that we can modify the orignal tree
-                 *
-                 * Then:
-                 * - We find the translation node in the original tree by following the path. If it does not exist, add it in its path
-                 * - Set the translation value to the updated value
-                 * - Save the psi based on the original tree
-                 * - Merge the update original tree into a representable key tree that will be used as model for this window
-                 *      (setRootNode for the model based on this new merged tree)
-                 *
-                 * Finally, optimizations:
-                 * - Only set the update node as changed instead of the whole merged tree
-                 */
                 val fileSaver = TranslationFileSaver(project, updatedValue, categoryPath, filePath, fileNode, keyNode.label)
                 fileSaver.save()
-
-//                if (translationNode == null) {
-//                    translationNode = TranslationNode(keyNode.label, updatedValue)
-//                    val languageHeader = model.languageColumns[column + 1].header
-//                    val languageNode = fileNode.children().toList().firstOrNull { it.type == NodeType.LANGUAGE && it.label == languageHeader } ?: return
-//                    translationNode.languageNode = languageNode as LanguageNode
-//                    keyNode.addTranslationNode(translationNode)
-//                }
-//
-//                val fileSaver = TranslationFileSaver(project, translationNode, updatedValue)
-//                fileSaver.save()
             }
 
             override fun editingCanceled(e: ChangeEvent?) {
