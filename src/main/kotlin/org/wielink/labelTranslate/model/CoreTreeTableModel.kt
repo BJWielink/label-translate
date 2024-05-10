@@ -2,12 +2,14 @@ package org.wielink.labelTranslate.model
 
 import com.intellij.ide.util.treeView.NodeDescriptor
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.ui.tree.AsyncTreeModel
 import com.intellij.ui.tree.StructureTreeModel
 import com.intellij.ui.tree.TreeVisitor
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
 import com.intellij.util.ui.tree.AbstractTreeModel
+import com.intellij.util.ui.tree.TreeUtil
 import org.jetbrains.concurrency.Promise
 import org.wielink.labelTranslate.enum.NodeType
 import org.wielink.labelTranslate.model.node.AbstractNode
@@ -25,6 +27,7 @@ class CoreTreeTableModel(project: Project, treeNode: TreeNode, val languageColum
     private val structure = CoreTreeStructure(project, treeNode as RootNode)
     private val structureModel = StructureTreeModel(structure, this)
     private val asyncModel = AsyncTreeModel(structureModel, true, this)
+    private lateinit var tree: JTree
 
     init {
         asyncModel.addTreeModelListener(this)
@@ -36,7 +39,23 @@ class CoreTreeTableModel(project: Project, treeNode: TreeNode, val languageColum
     }
 
     fun setComparator(comparator: Comparator<in NodeDescriptor<*>>) {
-        structureModel.setComparator(comparator)
+        runActionWithPathsRestore {
+            structureModel.setComparator(comparator)
+        }
+    }
+
+    private fun runActionWithPathsRestore(action: Runnable) {
+        ApplicationManager.getApplication().invokeLater {
+            val selectedPaths = TreeUtil.collectSelectedPaths(tree)
+            val expandedPaths = TreeUtil.collectExpandedPaths(tree)
+            action.run()
+            for (path in selectedPaths) {
+                TreeUtil.promiseSelect(tree, path)
+            }
+            for (path in expandedPaths) {
+                TreeUtil.promiseExpand(tree, path)
+            }
+        }
     }
 
     override fun getRoot(): Any? {
@@ -113,7 +132,8 @@ class CoreTreeTableModel(project: Project, treeNode: TreeNode, val languageColum
     override fun setValueAt(aValue: Any?, node: Any?, column: Int) {
     }
 
-    override fun setTree(tree: JTree?) {
+    override fun setTree(tree: JTree) {
+        this.tree = tree
     }
 
     override fun treeNodesChanged(e: TreeModelEvent?) {
