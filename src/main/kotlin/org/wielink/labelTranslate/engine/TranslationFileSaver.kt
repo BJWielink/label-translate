@@ -1,20 +1,10 @@
 package org.wielink.labelTranslate.engine
 
-import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.command.WriteCommandAction
-import com.intellij.openapi.components.service
+import com.intellij.openapi.progress.runBackgroundableTask
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.vfs.LocalFileSystem
-import com.intellij.openapi.vfs.findPsiFile
-import com.intellij.psi.PsiElement
-import com.intellij.psi.codeStyle.CodeStyleManager
-import com.intellij.psi.impl.source.tree.LeafPsiElement
-import com.jetbrains.php.lang.psi.PhpPsiElementFactory
-import com.jetbrains.php.lang.psi.elements.ArrayCreationExpression
-import com.jetbrains.php.lang.psi.elements.ArrayHashElement
+import com.intellij.openapi.vfs.VfsUtil
 import org.wielink.labelTranslate.enum.NodeType
 import org.wielink.labelTranslate.model.node.*
-import org.wielink.labelTranslate.service.TranslationFileParseService
 import java.io.File
 
 class TranslationFileSaver(
@@ -25,30 +15,42 @@ class TranslationFileSaver(
     private val fileNode: FileNode,
     private val translationLabel: String
 ) {
-    fun save() {
-        val languageFile = File(filePath)
+    private fun getUpdatedContent(updatedArray: String, currentFile: String): String {
+        val firstIndex = "return\\s*\\[".toRegex().find(currentFile)?.range?.last
+            ?: return getUpdatedContent(updatedArray, "$currentFile\nreturn [];")
 
-        if (!languageFile.exists() || !languageFile.isFile) {
-            return
+        val lastIndex = currentFile.lastIndexOf("]") + 1
+
+        if (lastIndex == 0) {
+            // Add it to the current file ourselves and call the method again
+            return getUpdatedContent(updatedArray, "$currentFile\nreturn [];")
         }
 
-        val virtualFile = LocalFileSystem.getInstance().findFileByIoFile(languageFile) ?: return
-        val psiFile = virtualFile.findPsiFile(project) ?: return
+        return currentFile.replaceRange(firstIndex, lastIndex, updatedArray)
+    }
 
-        val languageNode = fileNode.children().toList().first { (it as LanguageNode).filePath == filePath }
-        val translationNode = ensureNodeExists(languageNode as LanguageNode, categoryPath)
-        translationNode.translation = updatedValue
+    fun save() {
+        runBackgroundableTask("Saving translations", project, false) {
+            val languageFile = File(filePath)
 
-        // Add the translations
-        ApplicationManager.getApplication().invokeLater {
-            WriteCommandAction.runWriteCommandAction(project) {
-                deserializeNodeIntoPsi(psiFile, languageNode)
-
-                // Add indenting to the newly created file
-                val codeStyleManager = CodeStyleManager.getInstance(project)
-                codeStyleManager.reformat(psiFile)
-                project.service<TranslationFileParseService>().onFileChanged(listOf(virtualFile))
+            if (!languageFile.exists() || !languageFile.isFile) {
+                return@runBackgroundableTask
             }
+
+            // Find the language node, ensure that the path exists and set or update the translation
+            val languageNode = fileNode.children().toList().first { (it as LanguageNode).filePath == filePath }
+            val translationNode = ensureNodeExists(languageNode as LanguageNode, categoryPath)
+            translationNode.translation = updatedValue
+
+            // Create the return expression implementation
+            val stringBuilder = StringBuilder()
+            deserializeCategory(stringBuilder, languageNode)
+
+            // Generate the update file content
+            val updatedContent = getUpdatedContent(stringBuilder.toString(), languageFile.readText())
+            languageFile.writeText(updatedContent)
+
+            VfsUtil.markDirtyAndRefresh(true, false, false, languageFile)
         }
     }
 
@@ -81,11 +83,10 @@ class TranslationFileSaver(
         return translationNode
     }
 
-    private fun deserializeCategory(arrayElementToFill: PsiElement, nodeToDeserialize: AbstractNode) {
+    private fun deserializeCategory(stringBuilder: StringBuilder, nodeToDeserialize: AbstractNode, depth: Int = 0) {
         // Initialize the array
-        val array = PhpPsiElementFactory.createPhpPsiFromText(project, ArrayCreationExpression::class.java, "[")
+        stringBuilder.append("[\n")
 
-        // Sort alphabetically to mitigate merge conflicts
         val children = nodeToDeserialize.children().toList().sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label })
         for (childNodeToDeserialize in children) {
             if (childNodeToDeserialize.type == NodeType.KEY) {
@@ -94,41 +95,16 @@ class TranslationFileSaver(
 
             val label = childNodeToDeserialize.label.replace("'", "\\'")
             // Prepare key value pair by, firstly, adding the key
-            val keyValuePair = PhpPsiElementFactory.createPhpPsiFromText(project, ArrayHashElement::class.java, "['$label' =>]")
+            stringBuilder.append("${" ".repeat((depth + 1 ) * 4)}'$label' => ")
             if (childNodeToDeserialize is TranslationNode) {
-                // Add a simple translation to the current array
                 val translation = childNodeToDeserialize.translation.replace("'", "\\'")
-                keyValuePair.add(PhpPsiElementFactory.createStringLiteralExpression(project, translation, true))
+                stringBuilder.append("'$translation'")
             } else {
-                // Create dummy that has to be filled with data
-                val categoryElement = PhpPsiElementFactory.createPhpPsiFromText(project, ArrayCreationExpression::class.java, "[]")
-                val addedElement = keyValuePair.add(categoryElement)
-                // Recursively add data to the dummy
-                deserializeCategory(addedElement, childNodeToDeserialize)
+                deserializeCategory(stringBuilder, childNodeToDeserialize, depth + 1)
             }
-            array.add(PhpPsiElementFactory.createNewLine(project))
-            array.add(keyValuePair)
-            array.add(PhpPsiElementFactory.createComma(project))
-            array.add(PhpPsiElementFactory.createNewLine(project))
+            stringBuilder.append(",\n")
         }
 
-        // End the array
-        val arrayClosureElement = PhpPsiElementFactory.createFromText(project, LeafPsiElement::class.java, "]")!!
-        array.add(arrayClosureElement)
-
-        // Finally we replace ourselves (we are an empty array) with translation and other category data
-        arrayElementToFill.replace(array)
-    }
-
-    private fun deserializeNodeIntoPsi(element: PsiElement, languageNode: LanguageNode) {
-        // Find the array initializer
-        if (TranslationFileParser.isInitialCategoryNode(element)) {
-            deserializeCategory(element, languageNode)
-            return
-        }
-
-        for (child in element.children) {
-            deserializeNodeIntoPsi(child, languageNode)
-        }
+        stringBuilder.append("${" ".repeat(depth * 4)}]")
     }
 }
