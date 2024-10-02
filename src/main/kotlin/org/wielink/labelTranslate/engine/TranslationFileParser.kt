@@ -2,18 +2,13 @@ package org.wielink.labelTranslate.engine
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
-import com.intellij.openapi.vfs.findPsiFile
+import com.intellij.openapi.vfs.readText
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFileFactory
 import com.intellij.psi.PsiRecursiveElementVisitor
-import com.intellij.psi.util.PsiTreeUtil
+import com.jetbrains.php.lang.PhpLanguage
 import com.jetbrains.php.lang.psi.PhpFile
-import com.jetbrains.php.lang.psi.elements.ArrayCreationExpression
-import com.jetbrains.php.lang.psi.elements.ArrayHashElement
-import com.jetbrains.php.lang.psi.elements.PhpPsiElement
-import com.jetbrains.php.lang.psi.elements.PhpReturn
-import com.jetbrains.php.lang.psi.elements.StringLiteralExpression
-import com.jetbrains.php.lang.psi.elements.impl.ArrayCreationExpressionImpl
-import com.jetbrains.rd.generator.nova.Root
+import com.jetbrains.php.lang.psi.elements.*
 import org.wielink.labelTranslate.enum.NodeType
 import org.wielink.labelTranslate.model.node.*
 import java.io.File
@@ -62,7 +57,7 @@ class TranslationFileParser(private val project: Project) {
         }
 
         val virtualFile = LocalFileSystem.getInstance().findFileByIoFile(languageFile) ?: return
-        val psiFile = virtualFile.findPsiFile(project) ?: return
+        val psiFile = PsiFileFactory.getInstance(project).createFileFromText(PhpLanguage.INSTANCE, virtualFile.readText())
         psiFile.accept(object: PsiRecursiveElementVisitor() {
             override fun visitElement(element: PsiElement) {
                 if (isInitialCategoryNode(element)) {
