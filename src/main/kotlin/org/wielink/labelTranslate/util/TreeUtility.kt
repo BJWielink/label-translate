@@ -5,9 +5,10 @@ import org.wielink.labelTranslate.model.CoreColumn
 import org.wielink.labelTranslate.model.CoreTreeTableModel
 import org.wielink.labelTranslate.model.node.FileNode
 import org.wielink.labelTranslate.model.node.LanguageNode
+import org.wielink.labelTranslate.toolWindow.StatefulTreeCellEditor
 
 object TreeUtility {
-    fun toRepresentationModel(project: Project, fileNode: FileNode): CoreTreeTableModel {
+    fun toRepresentationModel(project: Project, fileNode: FileNode, statefulTreeCellEditor: StatefulTreeCellEditor): CoreTreeTableModel {
         /*
          * The UI tree expects the keys and categories to be displayed horizontally.
          * We merge together the file tree to become a horizontal key / category tree.
@@ -23,6 +24,6 @@ object TreeUtility {
         languageColumns.add(0, CoreColumn(0, "key"))
 
         // Calculate columns
-        return CoreTreeTableModel(project, keyTree, languageColumns)
+        return CoreTreeTableModel(project, keyTree, languageColumns, statefulTreeCellEditor)
     }
 }

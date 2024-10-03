@@ -16,6 +16,7 @@ import org.wielink.labelTranslate.model.node.AbstractNode
 import org.wielink.labelTranslate.model.node.KeyNode
 import org.wielink.labelTranslate.model.node.RootNode
 import org.wielink.labelTranslate.model.node.TranslationNode
+import org.wielink.labelTranslate.toolWindow.StatefulTreeCellEditor
 import javax.swing.JTree
 import javax.swing.event.TreeModelEvent
 import javax.swing.event.TreeModelListener
@@ -23,7 +24,12 @@ import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.TreeNode
 import javax.swing.tree.TreePath
 
-class CoreTreeTableModel(project: Project, treeNode: TreeNode, val languageColumns: List<CoreColumn>) : AbstractTreeModel(), TreeTableModel, TreeModelListener, TreeVisitor.Acceptor, Disposable {
+class CoreTreeTableModel(
+    project: Project,
+    private val treeNode: TreeNode,
+    val languageColumns: List<CoreColumn>,
+    private val statefulTreeCellEditor: StatefulTreeCellEditor
+) : AbstractTreeModel(), TreeTableModel, TreeModelListener, TreeVisitor.Acceptor, Disposable {
     private val structure = CoreTreeStructure(project, treeNode as RootNode)
     private val structureModel = StructureTreeModel(structure, this)
     private val asyncModel = AsyncTreeModel(structureModel, true, this)
@@ -31,6 +37,12 @@ class CoreTreeTableModel(project: Project, treeNode: TreeNode, val languageColum
 
     init {
         asyncModel.addTreeModelListener(this)
+    }
+
+    fun addKeyNode(label: String) {
+        val rootNode = treeNode as RootNode
+        rootNode.addKeyNode(KeyNode(label))
+        structureModel.invalidateAsync()
     }
 
     fun setRootNode(rootNode: RootNode) {
@@ -146,6 +158,10 @@ class CoreTreeTableModel(project: Project, treeNode: TreeNode, val languageColum
 
     override fun treeNodesRemoved(e: TreeModelEvent?) {
         treeNodesRemoved(e?.treePath, e?.childIndices, e?.children)
+    }
+
+    override fun valueForPathChanged(path: TreePath?, value: Any?) {
+        statefulTreeCellEditor.valueForPathChanged(path, value)
     }
 
     override fun treeStructureChanged(e: TreeModelEvent?) {

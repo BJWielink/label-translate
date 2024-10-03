@@ -1,14 +1,18 @@
 package org.wielink.labelTranslate.toolWindow
 
+import com.intellij.icons.AllIcons
 import com.intellij.ide.projectView.PresentationData
 import com.intellij.ide.util.treeView.NodeRenderer
+import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.TableSpeedSearch
 import com.intellij.ui.TreeSpeedSearch
 import com.intellij.ui.components.JBTreeTable
 import com.intellij.ui.tree.StructureTreeModel
 import com.intellij.util.ui.components.BorderLayoutPanel
+import org.wielink.labelTranslate.Constants
 import org.wielink.labelTranslate.engine.TranslationFileSaver
 import org.wielink.labelTranslate.enum.NodeType
 import org.wielink.labelTranslate.model.CoreNodeDescriptor
@@ -26,7 +30,8 @@ class CoreToolWindow(
     private var fileNode: FileNode,
     val id: String
 ) : BorderLayoutPanel() {
-    val model = TreeUtility.toRepresentationModel(project, fileNode)
+    val statefulTreeCellEditor = StatefulTreeCellEditor()
+    val model = TreeUtility.toRepresentationModel(project, fileNode, statefulTreeCellEditor)
     val treeTable: JBTreeTable
 
     private fun getCategoryPath(keyNode: KeyNode): List<String> {
@@ -44,6 +49,7 @@ class CoreToolWindow(
         treeTable = JBTreeTable(model)
         treeTable.columnProportion = 1.0f / model.columnCount
 
+        // Table editor
         val cellEditor = StatefulCellEditor()
         cellEditor.addCellEditorListener(object: CellEditorListener {
             override fun editingStopped(e: ChangeEvent?) {
@@ -83,6 +89,23 @@ class CoreToolWindow(
         })
         treeTable.table.setDefaultEditor(StructureTreeModel::class.java, cellEditor)
 
+        // Tree editor
+        statefulTreeCellEditor.addCellEditorListener(object: CellEditorListener {
+            override fun editingStopped(e: ChangeEvent?) {
+                if (e == null) {
+                    return
+                }
+
+                val editor = e.source as StatefulTreeCellEditor
+                val path = editor.path
+                val newKey = editor.value as String
+            }
+
+            override fun editingCanceled(e: ChangeEvent?) {}
+        })
+        treeTable.tree.cellEditor = statefulTreeCellEditor
+        treeTable.tree.isEditable = true
+
         treeTable.tree.setCellRenderer(object: NodeRenderer() {
             // Remove the over the top selection display on the tree item
             override fun getSimpleTextAttributes(
@@ -106,12 +129,37 @@ class CoreToolWindow(
 
         addToCenter(treeTable)
 
+        // Toolbar
+        val toolWindow = ToolWindowManager.getInstance(project).getToolWindow(Constants.TOOL_WINDOW_ID)
+        val isHorizontalView = toolWindow != null && toolWindow.anchor.isHorizontal
+        val actionToolbar = ActionManager.getInstance().createActionToolbar("CoreToolWindow", createToolbarActions(), !isHorizontalView)
+        actionToolbar.targetComponent = treeTable
+        val toolbarComponent = actionToolbar.component
+        if (isHorizontalView) {
+            addToLeft(toolbarComponent)
+        } else {
+            addToTop(toolbarComponent)
+        }
+
         // Search
         val treeSpeedSearch = TreeSpeedSearch.installOn(treeTable.tree, false) { it.lastPathComponent.toString() }
         treeSpeedSearch.setCanExpand(true)
         treeSpeedSearch.setClearSearchOnNavigateNoMatch(true)
         val tableSpeedSearch = TableSpeedSearch.installOn(treeTable.table)
         tableSpeedSearch.setClearSearchOnNavigateNoMatch(true)
+    }
+
+    private fun createToolbarActions(): ActionGroup {
+        val actionGroup = DefaultActionGroup()
+
+        // Button to add a new translation key
+        actionGroup.addAction(object: AnAction("Add New Translation", "Add a new translation key", AllIcons.General.Add) {
+            override fun actionPerformed(e: AnActionEvent) {
+                model.addKeyNode("")
+            }
+        })
+
+        return actionGroup
     }
 
     fun processUpdate(fileNode: FileNode) {
